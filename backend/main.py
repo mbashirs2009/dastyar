@@ -61,7 +61,7 @@ app.include_router(profile_router)
 
 @app.get("/health", response_model=HealthOut, tags=["system"])
 def health() -> HealthOut:
-    """بررسی سلامت سرویس (فرانت‌اند برای نمایش وضعیت از آن استفاده می‌کند)."""
+    """بررسی سلامت سرویس."""
     return HealthOut(status="ok", model="دستیار")
 
 

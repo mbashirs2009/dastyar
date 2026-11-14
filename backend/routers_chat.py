@@ -1,11 +1,13 @@
-"""مسیر چت «دستیار» — پاسخ جریانی (SSE) از OpenRouter.
+"""مسیر چت «دستیار» — پاسخ جریانی (SSE).
+
+زنجیره‌ی پیش‌فرض (auto):
+    ۱. OpenRouter  — فقط اگر کلید در `.env` باشد
+    ۲. Pollinations — رایگان، بدون کلید، سازگار با اینترنت ایران
+    ۳. پاسخ نمایشی — اگر همه شکست خوردند
 
 قرارداد خروجی:
-    data: <token>\\n\\n        (برای هر تکه متن)
-    data: [DONE]\\n\\n         (پایان جریان)
-
-اگر توکنی شامل خط جدید باشد، هر خط در یک فیلد `data:` جدا ارسال می‌شود
-(طبق استاندارد SSE کلاینت باید این خطوط را با «\\n» به هم بچسباند).
+    data: <token>\\n\\n
+    data: [DONE]\\n\\n
 """
 
 from __future__ import annotations
@@ -37,14 +39,17 @@ MODEL_LABEL = "دستیار"
 
 DEMO_REPLY = (
     "سلام! من **دستیار** هستم 👋\n\n"
-    "این یک پاسخ نمایشی است، چون کلید `OPENROUTER_API_KEY` تنظیم نشده یا حالت نمایشی "
-    "(`MOCK_MODE`) روشن است. برای پاسخ‌های واقعی، کلید OpenRouter را در فایل "
-    "`backend/.env` بگذارید و سرور را دوباره اجرا کنید.\n\n"
-    "هر سؤال فنی یا کدی داشتید، بعد از فعال‌سازی کلید همین‌جا بپرسید."
+    "اتصال به سرویس‌های مدل برقرار نشد، برای همین این یک پاسخ نمایشی است.\n\n"
+    "اینترنت را چک کن (یا اگر فیلترشکن داری برای پنجره‌ی API هم روشن کن) "
+    "و دوباره بپرس."
 )
 
 STREAM_ERROR_TEXT = "\n\n⚠️ ارتباط با مدل برقرار نشد. لطفاً چند لحظه بعد دوباره تلاش کنید."
 EMPTY_REPLY_TEXT = "متأسفم، پاسخی تولید نشد. لطفاً سؤال را به شکل دیگری بپرسید."
+
+# اتصال کوتاه؛ اگر OpenRouter فیلتر بود سریع رد شویم و برویم سراغ Pollinations
+CONNECT_TIMEOUT = 4.0
+READ_TIMEOUT = 90.0
 
 
 # --------------------------------------------------------------------------- #
@@ -67,7 +72,7 @@ def _chunk_text(text: str, words_per_chunk: int = 3) -> list[str]:
     words = re.findall(r"\S+\s*", text)
     if not words:
         return [text]
-    groups = [words[i:i + words_per_chunk] for i in range(0, len(words), words_per_chunk)]
+    groups = [words[i : i + words_per_chunk] for i in range(0, len(words), words_per_chunk)]
     return ["".join(group) for group in groups]
 
 
@@ -87,18 +92,58 @@ def _build_llm_messages(conversation_id: int) -> list[dict[str, str]]:
     return messages
 
 
-# --------------------------------------------------------------------------- #
-# تولید جریان
-# --------------------------------------------------------------------------- #
 async def _demo_stream() -> AsyncIterator[str]:
-    """پاسخ نمایشی کوتاه فارسی، با تأخیر کوتاه برای حس استریم واقعی."""
+    """پاسخ نمایشی کوتاه فارسی."""
     for chunk in _chunk_text(DEMO_REPLY):
         await asyncio.sleep(0.03)
         yield chunk
 
 
+# --------------------------------------------------------------------------- #
+# استریم OpenAI-سازگار (OpenRouter و Pollinations هر دو همین شکل را می‌دهند)
+# --------------------------------------------------------------------------- #
+async def _openai_sse_stream(
+    url: str,
+    headers: dict[str, str],
+    payload: dict[str, Any],
+) -> AsyncIterator[str]:
+    timeout = httpx.Timeout(connect=CONNECT_TIMEOUT, read=READ_TIMEOUT, write=20.0, pool=8.0)
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        async with client.stream("POST", url, headers=headers, json=payload) as response:
+            if response.status_code >= 400:
+                body = (await response.aread()).decode("utf-8", "replace")[:280]
+                logger.warning("LLM HTTP %s from %s: %s", response.status_code, url, body)
+                raise RuntimeError(f"HTTP {response.status_code}")
+
+            async for raw_line in response.aiter_lines():
+                line = raw_line.strip()
+                if not line or not line.startswith("data:"):
+                    continue  # کامنت‌ها مثل «: OPENROUTER PROCESSING»
+
+                data = line[len("data:") :].strip()
+                if data == "[DONE]":
+                    break
+
+                try:
+                    event = json.loads(data)
+                except json.JSONDecodeError:
+                    logger.debug("Skipping malformed SSE payload: %s", data[:120])
+                    continue
+
+                if isinstance(event, dict) and event.get("error"):
+                    logger.warning("LLM stream error: %s", str(event["error"])[:300])
+                    raise RuntimeError("stream error")
+
+                choices = event.get("choices") or []
+                if not choices:
+                    continue
+                delta = choices[0].get("delta") or {}
+                content = delta.get("content")
+                if isinstance(content, str) and content:
+                    yield content
+
+
 async def _openrouter_stream(messages: list[dict[str, str]]) -> AsyncIterator[str]:
-    """استریم توکن‌ها از endpoint سازگار با OpenAI در OpenRouter."""
     url = f"{settings.openrouter_base_url}/chat/completions"
     headers = {
         "Authorization": f"Bearer {settings.openrouter_api_key.strip()}",
@@ -112,41 +157,61 @@ async def _openrouter_stream(messages: list[dict[str, str]]) -> AsyncIterator[st
         "stream": True,
         "temperature": 0.7,
     }
-    timeout = httpx.Timeout(connect=15.0, read=120.0, write=30.0, pool=15.0)
+    async for token in _openai_sse_stream(url, headers, payload):
+        yield token
 
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        async with client.stream("POST", url, headers=headers, json=payload) as response:
-            if response.status_code >= 400:
-                body = (await response.aread()).decode("utf-8", "replace")[:300]
-                logger.warning("OpenRouter HTTP %s: %s", response.status_code, body)
-                raise RuntimeError(f"OpenRouter error {response.status_code}")
 
-            async for raw_line in response.aiter_lines():
-                line = raw_line.strip()
-                if not line or not line.startswith("data:"):
-                    continue  # کامنت‌ها مثل «: OPENROUTER PROCESSING» نادیده گرفته می‌شوند
+async def _pollinations_stream(messages: list[dict[str, str]]) -> AsyncIterator[str]:
+    """رایگان، بدون کلید — روی اینترنت ایران هم جواب می‌دهد (تست شده)."""
+    url = f"{settings.pollinations_base_url}/openai"
+    headers = {
+        "Content-Type": "application/json",
+        "Referer": settings.frontend_url,
+    }
+    payload: dict[str, Any] = {
+        "model": settings.pollinations_model,
+        "messages": messages,
+        "stream": True,
+        "temperature": 0.7,
+    }
+    async for token in _openai_sse_stream(url, headers, payload):
+        yield token
 
-                data = line[len("data:"):].strip()
-                if data == "[DONE]":
-                    break
 
-                try:
-                    event = json.loads(data)
-                except json.JSONDecodeError:
-                    logger.debug("Skipping malformed SSE payload: %s", data[:120])
-                    continue
+async def _provider_stream(name: str, messages: list[dict[str, str]]) -> AsyncIterator[str]:
+    if name == "openrouter":
+        async for token in _openrouter_stream(messages):
+            yield token
+    elif name == "pollinations":
+        async for token in _pollinations_stream(messages):
+            yield token
+    elif name == "mock":
+        async for token in _demo_stream():
+            yield token
+    else:  # pragma: no cover
+        raise RuntimeError(f"unknown provider {name}")
 
-                if isinstance(event, dict) and event.get("error"):
-                    logger.warning("OpenRouter stream error: %s", str(event["error"])[:300])
-                    raise RuntimeError("OpenRouter stream error")
 
-                choices = event.get("choices") or []
-                if not choices:
-                    continue
-                delta = choices[0].get("delta") or {}
-                content = delta.get("content")
-                if isinstance(content, str) and content:
-                    yield content
+async def _auto_stream(messages: list[dict[str, str]]) -> AsyncIterator[str]:
+    """اولین سرویسی که توکن داد برنده است؛ اگر قبل از اولین توکن شکست بخورد بعدی را می‌آزماییم."""
+    for name in settings.provider_chain:
+        sent = False
+        try:
+            async for token in _provider_stream(name, messages):
+                sent = True
+                yield token
+            if sent:
+                return
+            logger.warning("Provider %s returned empty reply, trying next", name)
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001
+            if sent:
+                # وسط پاسخ قطع شد؛ با سرویس بعدی از نو شروع نمی‌کنیم (تکرار می‌شد)
+                return
+            logger.warning("Provider %s failed before first token, trying next", name)
+            continue
+    # اگر زنجیره خالی ماند (نمی‌شود) demo از خود chain می‌آید
 
 
 async def _event_stream(conversation_id: int, messages: list[dict[str, str]]) -> AsyncIterator[str]:
@@ -154,22 +219,16 @@ async def _event_stream(conversation_id: int, messages: list[dict[str, str]]) ->
     parts: list[str] = []
 
     try:
-        if settings.use_mock:
-            async for chunk in _demo_stream():
-                parts.append(chunk)
-                yield _sse(chunk)
-        else:
-            async for chunk in _openrouter_stream(messages):
-                parts.append(chunk)
-                yield _sse(chunk)
+        async for chunk in _auto_stream(messages):
+            parts.append(chunk)
+            yield _sse(chunk)
 
         if not "".join(parts).strip():
             parts.append(EMPTY_REPLY_TEXT)
             yield _sse(EMPTY_REPLY_TEXT)
     except asyncio.CancelledError:
-        # کلاینت اتصال را بست؛ متن جزئی در finally ذخیره می‌شود.
         raise
-    except Exception:  # noqa: BLE001 - جریان نباید نیمه‌کاره رها شود
+    except Exception:  # noqa: BLE001
         logger.exception("Chat stream failed for conversation %s", conversation_id)
         parts.append(STREAM_ERROR_TEXT)
         yield _sse(STREAM_ERROR_TEXT)
@@ -178,7 +237,7 @@ async def _event_stream(conversation_id: int, messages: list[dict[str, str]]) ->
         if answer:
             try:
                 db.add_message(conversation_id, "assistant", answer)
-            except Exception:  # noqa: BLE001 - ذخیره‌سازی نباید جریان را بشکند
+            except Exception:  # noqa: BLE001
                 logger.exception("Failed to persist assistant message")
 
     yield _done()

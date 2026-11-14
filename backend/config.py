@@ -16,6 +16,8 @@ BASE_DIR = Path(__file__).resolve().parent
 
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "google/gemini-2.5-flash-lite"
+DEFAULT_POLLINATIONS_URL = "https://text.pollinations.ai"
+DEFAULT_POLLINATIONS_MODEL = "openai"
 DEFAULT_FRONTEND_URL = "http://localhost:5173"
 DEFAULT_BACKEND_URL = "http://localhost:8000"
 
@@ -30,10 +32,17 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # --- OpenRouter ---
+    # --- OpenRouter (اختیاری — اگر کلید نباشد از Pollinations رایگان استفاده می‌شود) ---
     openrouter_api_key: str = ""
     openrouter_base_url: str = DEFAULT_BASE_URL
     openrouter_model: str = DEFAULT_MODEL
+
+    # --- Pollinations (پیش‌فرض رایگان، بدون کلید، سازگار با اینترنت ایران) ---
+    pollinations_base_url: str = DEFAULT_POLLINATIONS_URL
+    pollinations_model: str = DEFAULT_POLLINATIONS_MODEL
+
+    # --- نوع سرویس: auto | pollinations | openrouter | mock ---
+    llm_provider: str = "auto"
 
     # --- JWT ---
     jwt_secret: str = "dastyar-dev-secret-change-me"
@@ -59,6 +68,12 @@ class Settings(BaseSettings):
             self.openrouter_base_url = DEFAULT_BASE_URL
         if not self.openrouter_model.strip():
             self.openrouter_model = DEFAULT_MODEL
+        if not self.pollinations_base_url.strip():
+            self.pollinations_base_url = DEFAULT_POLLINATIONS_URL
+        if not self.pollinations_model.strip():
+            self.pollinations_model = DEFAULT_POLLINATIONS_MODEL
+        if not self.llm_provider.strip():
+            self.llm_provider = "auto"
         if not self.frontend_url.strip():
             self.frontend_url = DEFAULT_FRONTEND_URL
         if not self.backend_url.strip():
@@ -66,8 +81,9 @@ class Settings(BaseSettings):
         if not self.jwt_secret.strip():
             self.jwt_secret = "dastyar-dev-secret-change-me"
 
-        for field in ("openrouter_base_url", "frontend_url", "backend_url"):
+        for field in ("openrouter_base_url", "frontend_url", "backend_url", "pollinations_base_url"):
             setattr(self, field, getattr(self, field).strip().rstrip("/"))
+        self.llm_provider = self.llm_provider.strip().lower()
 
         return self
 
@@ -78,8 +94,25 @@ class Settings(BaseSettings):
 
     @property
     def use_mock(self) -> bool:
-        """حالت نمایشی: یا صریح روشن شده یا کلید API وجود ندارد."""
-        return self.mock_mode or not self.has_openrouter_key
+        """حالت نمایشی فقط وقتی صریح روشن شده باشد — کلید دیگر اجباری نیست."""
+        return self.mock_mode or self.llm_provider == "mock"
+
+    @property
+    def provider_chain(self) -> list[str]:
+        """ترتیب تلاش برای تولید پاسخ؛ اولین که توکن داد برنده است."""
+        if self.use_mock:
+            return ["mock"]
+        if self.llm_provider == "pollinations":
+            return ["pollinations", "mock"]
+        if self.llm_provider == "openrouter":
+            chain = ["openrouter"] if self.has_openrouter_key else []
+            return [*chain, "pollinations", "mock"]
+        # auto: اگر کلید بود اول OpenRouter، بعد Pollinations (بدون کلید، ایران‌پسند)
+        chain: list[str] = []
+        if self.has_openrouter_key:
+            chain.append("openrouter")
+        chain.append("pollinations")
+        return [*chain, "mock"]
 
     @property
     def cors_origins(self) -> list[str]:
