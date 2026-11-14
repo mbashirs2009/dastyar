@@ -1,0 +1,33 @@
+# دستیار — یک سرویس، یک URL (API + وب)
+# Render → New → Blueprint → این ریپو
+
+services:
+  - type: web
+    name: dastyar
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: APP_HOST
+        value: 0.0.0.0
+      - key: FRONTEND_URL
+        sync: false          # بعد از اولین deploy آدرس onrender.com را بگذار
+      - key: BACKEND_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: OPENROUTER_API_KEY
+        sync: false          # اختیاری
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false          # اختیاری
+      - key: TELEGRAM_WEBAPP_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false

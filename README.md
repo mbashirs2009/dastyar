@@ -12,10 +12,29 @@
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev)
 [![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)](https://vitejs.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0F62FE.svg)](LICENSE)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Bashir1425/dastyar)
 
 </div>
 
 ---
+
+## 🚀 سایت عمومی (هر push = deploy خودکار)
+
+یک بار روی Render وصل کن، بعدش هر `save.bat` سایت عمومی را هم به‌روز می‌کند:
+
+1. دکمه‌ی **Deploy to Render** بالا را بزن (یا [render.com/deploy?repo=https://github.com/Bashir1425/dastyar](https://render.com/deploy?repo=https://github.com/Bashir1425/dastyar))
+2. با گیت‌هاب لاگین کن → **Apply**
+3. بعد از build، آدرسی مثل `https://dastyar-xxxx.onrender.com` می‌گیری
+4. در Render → Environment این‌ها را بگذار:
+   - `FRONTEND_URL` = همان آدرس onrender
+   - `BACKEND_URL` = همان آدرس
+   - `TELEGRAM_WEBAPP_URL` = همان آدرس (برای Mini App)
+   - اختیاری: `OPENROUTER_API_KEY`، `TELEGRAM_BOT_TOKEN`
+5. **Manual Deploy** بزن تا env های جدید اعمال شود
+
+از این به بعد هر `save.bat` = deploy خودکار سایت عمومی + ربات تلگرام.
+
+Free plan بعد از ۱۵ دقیقه بی‌کاری می‌خوابد؛ اولین درخواست چند ثانیه طول می‌کشد.
 
 ## ✏️ تغییر کد — فقط یک جا
 

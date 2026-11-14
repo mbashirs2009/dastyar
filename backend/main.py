@@ -14,6 +14,8 @@ import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from pathlib import Path
 
 import database
 from auth import router as auth_router
@@ -73,6 +75,16 @@ app.include_router(conversations_router)
 app.include_router(conversations_router)
 app.include_router(chat_router)
 app.include_router(profile_router)
+
+# SPA — اگر frontend/dist بود (deploy روی Render)، سایت را از همین دامنه سرو کن
+_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+if _DIST.is_dir():
+    @app.get("/{spa_path:path}", include_in_schema=False)
+    def spa(spa_path: str) -> FileResponse:
+        target = (_DIST / spa_path).resolve()
+        if spa_path and target.is_file() and str(target).startswith(str(_DIST)):
+            return FileResponse(target)
+        return FileResponse(_DIST / "index.html")
 
 
 @app.get("/health", response_model=HealthOut, tags=["system"])
