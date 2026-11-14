@@ -1,0 +1,17 @@
+name: Keep Dastyar awake
+
+on:
+  schedule:
+    # هر ۵ دقیقه — جلوگیری از sleep رایگان Render
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health
+        run: |
+          curl -fsS --max-time 30 https://dastyar-grk2.onrender.com/health \
+            || curl -fsS --max-time 30 https://dastyar-grk2.onrender.com/ \
+            || true
