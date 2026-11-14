@@ -98,6 +98,17 @@ def health() -> HealthOut:
     return HealthOut(status="ok", model="دستیار")
 
 
+@app.get("/debug-spa", include_in_schema=False)
+def debug_spa() -> dict:
+    """موقت: دیدن اینکه dist کجا است (بعد از deploy درست، حذف می‌شود)."""
+    return {
+        "candidates": [str(p) for p in _dist_candidates],
+        "exists": [p.is_dir() for p in _dist_candidates],
+        "dist": str(_DIST),
+        "files": [x.name for x in _DIST.iterdir()][:15] if _DIST else None,
+    }
+
+
 @app.get("/", tags=["system"])
 def root() -> dict[str, str]:
     return {
