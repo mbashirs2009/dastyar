@@ -77,8 +77,13 @@ app.include_router(chat_router)
 app.include_router(profile_router)
 
 # SPA — اگر frontend/dist بود (deploy روی Render)، سایت را از همین دامنه سرو کن
-_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
-if _DIST.is_dir():
+_dist_candidates = [
+    Path(__file__).resolve().parent.parent / "frontend" / "dist",
+    Path(__file__).resolve().parent / "frontend" / "dist",
+    Path("/app/frontend/dist"),
+]
+_DIST = next((p for p in _dist_candidates if p.is_dir()), None)
+if _DIST is not None:
     @app.get("/{spa_path:path}", include_in_schema=False)
     def spa(spa_path: str) -> FileResponse:
         target = (_DIST / spa_path).resolve()
