@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     github_client_id: str = ""
     github_client_secret: str = ""
 
+    # --- Telegram Mini App / Bot ---
+    telegram_bot_token: str = ""
+    telegram_webapp_url: str = ""  # خالی = frontend_url
+
     # --- سرور ---
     app_host: str = "127.0.0.1"
     app_port: int = 8000
@@ -78,14 +82,20 @@ class Settings(BaseSettings):
             self.frontend_url = DEFAULT_FRONTEND_URL
         if not self.backend_url.strip():
             self.backend_url = DEFAULT_BACKEND_URL
+        if not self.telegram_webapp_url.strip():
+            self.telegram_webapp_url = self.frontend_url
         if not self.jwt_secret.strip():
             self.jwt_secret = "dastyar-dev-secret-change-me"
 
-        for field in ("openrouter_base_url", "frontend_url", "backend_url", "pollinations_base_url"):
+        for field in ("openrouter_base_url", "frontend_url", "backend_url", "pollinations_base_url", "telegram_webapp_url"):
             setattr(self, field, getattr(self, field).strip().rstrip("/"))
         self.llm_provider = self.llm_provider.strip().lower()
 
         return self
+
+    @property
+    def has_telegram_bot(self) -> bool:
+        return bool(self.telegram_bot_token.strip())
 
     @property
     def has_openrouter_key(self) -> bool:

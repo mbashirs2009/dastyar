@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+import asyncio
+import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,22 +21,33 @@ from config import settings
 from routers_chat import router as chat_router
 from routers_conversations import router as conversations_router
 from routers_profile import router as profile_router
+from routers_telegram import router as telegram_auth_router, telegram_router
 from schemas import HealthOut
 
 DESCRIPTION = """
 بک‌اند اپلیکیشن چت هوش مصنوعی **دستیار**.
 
-- احراز هویت با ایمیل/رمز، گوگل و گیت‌هاب (JWT)
+- احراز هویت با ایمیل/رمز، گوگل، گیت‌هاب و تلگرام (JWT)
 - گفتگوها و پیام‌ها در SQLite
-- پاسخ جریانی (SSE) از OpenRouter با نام مدل «دستیار»
+- پاسخ جریانی (SSE) — پیش‌فرض Pollinations (بدون کلید) یا OpenRouter
+- ربات تلگرام + Mini App
 """
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    """ساخت جدول‌های SQLite در شروع برنامه."""
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """ساخت جدول‌های SQLite و روشن‌کردن ربات تلگرام اگر توکن باشد."""
     database.init_db()
+    polling_task = None
+    if settings.has_telegram_bot:
+        try:
+            from telegram_bot import start_polling
+            polling_task = asyncio.create_task(start_polling())
+        except Exception:  # noqa: BLE001
+            logging.getLogger("dastyar").warning("Telegram polling failed to start", exc_info=True)
     yield
+    if polling_task:
+        polling_task.cancel()
 
 
 app = FastAPI(
@@ -54,6 +67,9 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(telegram_auth_router)
+app.include_router(telegram_router)
+app.include_router(conversations_router)
 app.include_router(conversations_router)
 app.include_router(chat_router)
 app.include_router(profile_router)

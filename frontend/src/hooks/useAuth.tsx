@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { authApi, clearToken, getToken, getStoredUser, setStoredUser, setToken } from '../lib/api'
+import { authApi, api, clearToken, getToken, getStoredUser, setStoredUser, setToken } from '../lib/api'
 import type { User } from '../lib/types'
 
 interface AuthValue {
@@ -59,6 +59,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!cancelled) setLoading(false)
       })
 
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Telegram Mini App auto-login (if opened from BotFather webapp)
+  useEffect(() => {
+    const tg = (window as unknown as { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp
+    const initData = tg?.initData
+    if (!initData || getToken()) return
+    let cancelled = false
+    api<{ access_token: string; user: User }>('/auth/telegram/verify', {
+      method: 'POST',
+      body: JSON.stringify({ initData }),
+    })
+      .then((res) => {
+        if (cancelled) return
+        setToken(res.access_token)
+        setUserState(res.user)
+        setStoredUser(res.user)
+        setLoading(false)
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false)
+      })
     return () => {
       cancelled = true
     }

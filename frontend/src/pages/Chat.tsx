@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChatHeader } from '../components/ChatHeader'
 import { Composer } from '../components/Composer'
+import { InstallPwa } from '../components/InstallPwa'
 import { MessageList } from '../components/MessageList'
 import { Sidebar } from '../components/Sidebar'
 import { useAuth } from '../hooks/useAuth'
@@ -27,6 +28,14 @@ export default function Chat() {
   useEffect(() => {
     if (!loading && !user) navigate('/login', { replace: true })
   }, [loading, user, navigate])
+
+  useEffect(() => {
+    const tg = (window as unknown as { Telegram?: { WebApp?: { ready?: () => void; expand?: () => void } } }).Telegram?.WebApp
+    if (tg) {
+      tg.ready?.()
+      tg.expand?.()
+    }
+  }, [])
 
   const newChat = useCallback(async () => {
     chat.reset()
@@ -87,6 +96,9 @@ export default function Chat() {
           onOpenSidebar={() => setSidebarOpen(true)}
           title={activeTitle || 'دستیار'}
         />
+        <div className="flex justify-end px-4 pt-2 lg:hidden">
+          <InstallPwa />
+        </div>
 
         <main className="flex flex-1 flex-col overflow-hidden">
           <div className="scroll-area flex-1 overflow-y-auto">

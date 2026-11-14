@@ -180,6 +180,44 @@ npm install --no-audit --no-fund
 ```
 </details>
 
+## 📱 موبایل (PWA)
+
+بعد از باز کردن سایت در Chrome اندروید: منو → **Add to Home screen**.
+آیکون دستیار روی گوشی می‌نشیند و تمام‌صفحه باز می‌شود.
+
+iOS Safari: Share → Add to Home Screen.
+
+## 💬 تلگرام (BotFather + Mini App)
+
+اپ به‌عنوان Mini App داخل تلگرام باز می‌شود و کاربر تلگرام خودکار لاگین می‌شود.
+
+### ۱. ساخت ربات
+1. در تلگرام به [@BotFather](https://t.me/BotFather) برو
+2. `/newbot` → اسم: `Dastyar` → یوزرنیم: مثلاً `dastyar_ai_bot`
+3. توکن را کپی کن (`123456:ABC-...`)
+
+### ۲. اتصال به اپ
+در `backend/.env`:
+
+```env
+TELEGRAM_BOT_TOKEN=123456:ABC-...
+# آدرس HTTPS عمومی (localhost در تلگرام باز نمی‌شود)
+# برای تست روی سیستم: ngrok http 5173
+TELEGRAM_WEBAPP_URL=https://xxxx.ngrok-free.app
+```
+
+بک‌اند را ری‌استارت کن — ربات long-polling روشن می‌شود.
+
+### ۳. دکمه‌ی منو در BotFather
+به BotFather:
+- `/mybots` → رباتت → **Bot Settings → Menu Button** → آدرس وب‌اپ را بده
+- یا **Web App** در ربات با همان URL
+
+### ۴. باز کردن از تلگرام
+در چت ربات، دکمه‌ی «🚀 باز کردن دستیار» یا منوی ربات را بزن — سایت داخل تلگرام باز می‌شود و بدون پسورد وارد می‌شوی.
+
+> `api.telegram.org` در ایران فیلتر است؛ پنجره‌ی API باید فیلترشکن داشته باشد. وب‌اپ داخل تلگرام روی گوشی کاربر اجرا می‌شود (تلگرام خودش متصل است).
+
 ## 🎨 طراحی
 
 توکن‌ها در `design/tokens.css`:
