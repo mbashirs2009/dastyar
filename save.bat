@@ -40,7 +40,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo  ✓ روی https://github.com/Bashir1425/dastyar رفت.
+echo  ✓ روی https://github.com/mbashirs2009/dastyar رفت.
 echo  ✓ هر ماشین دیگری با update.bat همین را می‌گیرد.
 echo.
 pause

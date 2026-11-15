@@ -9,4 +9,4 @@ else
   git commit -m "$1"
 fi
 git push
-echo "✓ روی github.com/Bashir1425/dastyar رفت"
+echo "✓ روی github.com/mbashirs2009/dastyar رفت"

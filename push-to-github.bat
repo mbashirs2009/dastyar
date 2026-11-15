@@ -5,15 +5,15 @@ cd /d "%~dp0"
 
 echo.
 echo  === Push Dastyar to GitHub ===
-echo  Repo: https://github.com/Bashir1425/dastyar
+echo  Repo: https://github.com/mbashirs2009/dastyar
 echo.
 
 git remote get-url origin >nul 2>nul
 if errorlevel 1 (
-  git remote add origin https://github.com/Bashir1425/dastyar.git
+  git remote add origin https://github.com/mbashirs2009/dastyar.git
 )
 
-echo  If a browser opens, sign in with Bashir1425 and click Authorize.
+echo  If a browser opens, sign in with mbashirs2009 and click Authorize.
 echo  If you see "Repository not found":
 echo    1. Open https://github.com/new
 echo    2. Name: dastyar   Visibility: Public or Private

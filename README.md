@@ -12,7 +12,7 @@
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev)
 [![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)](https://vitejs.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0F62FE.svg)](LICENSE)
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Bashir1425/dastyar)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/mbashirs2009/dastyar)
 
 </div>
 
@@ -22,7 +22,7 @@
 
 یک بار روی Render وصل کن، بعدش هر `save.bat` سایت عمومی را هم به‌روز می‌کند:
 
-1. دکمه‌ی **Deploy to Render** بالا را بزن (یا [render.com/deploy?repo=https://github.com/Bashir1425/dastyar](https://render.com/deploy?repo=https://github.com/Bashir1425/dastyar))
+1. دکمه‌ی **Deploy to Render** بالا را بزن (یا [render.com/deploy?repo=https://github.com/mbashirs2009/dastyar](https://render.com/deploy?repo=https://github.com/mbashirs2009/dastyar))
 2. با گیت‌هاب لاگین کن → **Apply**
 3. بعد از build، آدرسی مثل `https://dastyar-xxxx.onrender.com` می‌گیری
 4. در Render → Environment این‌ها را بگذار:
@@ -61,7 +61,7 @@ Free plan بعد از ۱۵ دقیقه بی‌کاری می‌خوابد؛ اول
 پیش‌نیاز: [Python 3.11+](https://python.org) و [Node.js 20+](https://nodejs.org)
 
 ```powershell
-git clone https://github.com/Bashir1425/dastyar.git
+git clone https://github.com/mbashirs2009/dastyar.git
 cd dastyar
 start.bat          # ویندوز
 # یا

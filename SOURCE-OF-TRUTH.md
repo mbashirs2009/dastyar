@@ -1,1 +1,1 @@
-# در این پروژه گیت‌هاب تنها منبع کد است (github.com/Bashir1425/dastyar). کاربر نمی‌خواهد در چند جا جدا ادیت کند: desktop clone با save.bat/update.bat با گیت‌هاب همگام می‌شود. کلیدهای API فقط در backend/.env محلی (gitignored). AutoClaw workspace copy را منبع حقیقت حساب نکن.
+# در این پروژه گیت‌هاب تنها منبع کد است (github.com/mbashirs2009/dastyar). کاربر نمی‌خواهد در چند جا جدا ادیت کند: desktop clone با save.bat/update.bat با گیت‌هاب همگام می‌شود. کلیدهای API فقط در backend/.env محلی (gitignored). AutoClaw workspace copy را منبع حقیقت حساب نکن.
