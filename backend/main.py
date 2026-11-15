@@ -88,7 +88,8 @@ async def security_and_request_id(request: Request, call_next):
     if path.startswith(("/auth", "/conversations", "/chat", "/profile")):
         response.headers["Cache-Control"] = "no-store"
     # مخفی کردن x-render-origin-server اگر بود
-    response.headers.pop("x-render-origin-server", None)
+    if "x-render-origin-server" in response.headers:
+        del response.headers["x-render-origin-server"]
     return response
 
 
