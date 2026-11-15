@@ -1,4 +1,5 @@
 import { Logo } from './Logo'
+import { InstallPwa } from './InstallPwa'
 
 interface ChatHeaderProps {
   onOpenSidebar: () => void
@@ -24,6 +25,9 @@ export function ChatHeader({ onOpenSidebar, title }: ChatHeaderProps) {
       <span className="ms-auto hidden items-center gap-1.5 text-[11px] text-muted sm:flex">
         <span className="h-1.5 w-1.5 rounded-full bg-ok" aria-hidden="true" />
         آنلاین
+      </span>
+      <span className="ms-auto lg:hidden">
+        <InstallPwa />
       </span>
     </header>
   )

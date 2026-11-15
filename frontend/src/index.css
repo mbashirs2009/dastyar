@@ -77,14 +77,21 @@
   html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    overscroll-behavior: none;
   }
 
   body {
     @apply bg-paper font-sans text-ink antialiased;
-    min-height: 100dvh;
+    height: 100dvh;
+    overflow: hidden;
     font-size: 15px;
     line-height: 1.7;
     text-rendering: optimizeLegibility;
+  }
+
+  #root {
+    height: 100dvh;
+    overflow: hidden;
   }
 
   h1,

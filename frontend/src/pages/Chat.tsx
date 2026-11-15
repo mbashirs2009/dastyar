@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChatHeader } from '../components/ChatHeader'
 import { Composer } from '../components/Composer'
-import { InstallPwa } from '../components/InstallPwa'
 import { MessageList } from '../components/MessageList'
 import { Sidebar } from '../components/Sidebar'
 import { useAuth } from '../hooks/useAuth'
@@ -82,7 +81,7 @@ export default function Chat() {
   const activeTitle = items.find((item) => item.id === activeId)?.title
 
   return (
-    <div className="flex min-h-dvh bg-paper">
+    <div className="flex h-dvh overflow-hidden bg-paper">
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -91,21 +90,16 @@ export default function Chat() {
         onNew={() => void newChat()}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <ChatHeader
           onOpenSidebar={() => setSidebarOpen(true)}
           title={activeTitle || 'دستیار'}
         />
-        <div className="flex justify-end px-4 pt-2 lg:hidden">
-          <InstallPwa />
-        </div>
 
-        <main className="flex flex-1 flex-col overflow-hidden">
-          <div className="scroll-area flex-1 overflow-y-auto">
-            <MessageList messages={chat.messages} streaming={chat.streaming} />
-          </div>
+        <main className="flex min-h-0 flex-1 flex-col">
+          <MessageList messages={chat.messages} streaming={chat.streaming} />
 
-          <div className="mx-auto w-full max-w-3xl px-4 pb-4">
+          <div className="mx-auto w-full max-w-3xl px-4" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
             {chat.messages.length === 0 && (
               <div className="mb-3 flex flex-wrap gap-2">
                 {SUGGESTIONS.map((s) => (
