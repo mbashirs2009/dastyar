@@ -1,24 +1,9 @@
 import type { AuthResponse, ProfilePatch, User } from './types'
+import { clearAccess, getAccess, setAccess } from './auth-store'
 
-const TOKEN_KEY = 'dastyar_token'
+export { getAccess, setAccess, clearAccess }
+
 const USER_KEY = 'dastyar_user'
-
-export function getToken(): string | null {
-  try {
-    return localStorage.getItem(TOKEN_KEY)
-  } catch {
-    return null
-  }
-}
-
-export function setToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token)
-}
-
-export function clearToken(): void {
-  localStorage.removeItem(TOKEN_KEY)
-  localStorage.removeItem(USER_KEY)
-}
 
 export function getStoredUser(): User | null {
   try {
@@ -34,11 +19,24 @@ export function setStoredUser(user: User): void {
   localStorage.setItem(USER_KEY, JSON.stringify(user))
 }
 
+export function clearToken(): void {
+  clearAccess()
+  localStorage.removeItem(USER_KEY)
+}
+
+/** سازگاری با کد قبلی — توکن فقط در حافظه است. */
+export const getToken = getAccess
+export const setToken = setAccess
+
 function detailOf(body: unknown, fallback: string): string {
   if (!body) return fallback
   if (typeof body === 'string') return body
   const candidate = body as Record<string, unknown>
   if (typeof candidate.detail === 'string') return candidate.detail
+  if (typeof candidate.error === 'object' && candidate.error) {
+    const err = candidate.error as { message?: string }
+    if (err.message) return err.message
+  }
   if (Array.isArray(candidate.detail)) {
     const first = candidate.detail[0] as { msg?: string } | undefined
     if (first?.msg) return first.msg
@@ -46,25 +44,49 @@ function detailOf(body: unknown, fallback: string): string {
   return fallback
 }
 
-export async function api<T>(
-  path: string,
-  init: RequestInit = {},
-): Promise<T> {
-  const token = getToken()
-  const res = await fetch(path, {
+async function rawFetch(path: string, init: RequestInit): Promise<Response> {
+  const token = getAccess()
+  return fetch(path, {
     ...init,
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init.headers ?? {}),
     },
   })
+}
+
+async function refreshAccess(): Promise<string | null> {
+  const res = await fetch('/auth/refresh', {
+    method: 'POST',
+    credentials: 'include',
+  })
+  if (!res.ok) return null
+  const body = (await res.json()) as { access_token?: string }
+  if (!body.access_token) return null
+  setAccess(body.access_token)
+  return body.access_token
+}
+
+export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  let res = await rawFetch(path, init)
+
+  if (res.status === 401 && !path.startsWith('/auth/refresh') && !path.startsWith('/auth/login') && !path.startsWith('/auth/register')) {
+    const newToken = await refreshAccess()
+    if (newToken) {
+      res = await rawFetch(path, init)
+    } else {
+      clearAccess()
+      throw new Error('نشست شما منقضی شده؛ دوباره وارد شوید.')
+    }
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => null)
     if (res.status === 401) {
-      clearToken()
-      throw new Error('نشست شما منقضی شده؛ دوباره وارد شوید.')
+      clearAccess()
+      throw new Error(detailOf(body, 'نشست شما منقضی شده؛ دوباره وارد شوید.'))
     }
     throw new Error(detailOf(body, `خطای ${res.status}`))
   }
@@ -81,14 +103,19 @@ export interface RegisterPayload {
   name: string
 }
 
+export interface RegisterResult extends Partial<AuthResponse> {
+  ok?: boolean
+  message?: string
+}
+
 export const authApi = {
-  register: (payload: RegisterPayload) =>
-    api<AuthResponse>('/auth/register', {
+  register: (payload: RegisterPayload): Promise<AuthResponse | RegisterResult> =>
+    api<AuthResponse | RegisterResult>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
 
-  login: (email: string, password: string) =>
+  login: (email: string, password: string): Promise<AuthResponse> =>
     api<AuthResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
@@ -97,6 +124,23 @@ export const authApi = {
   me: () => api<User>('/auth/me'),
 
   logout: () => api<{ ok: boolean }>('/auth/logout', { method: 'POST' }),
+
+  refresh: async (): Promise<AuthResponse | null> => {
+    const res = await fetch('/auth/refresh', {
+      method: 'POST',
+      credentials: 'include',
+    })
+    if (!res.ok) return null
+    const body = (await res.json()) as AuthResponse
+    setAccess(body.access_token)
+    return body
+  },
+
+  changePassword: (current_password: string, new_password: string) =>
+    api<{ ok: boolean }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ current_password, new_password }),
+    }),
 }
 
 /* ---------------- profile ---------------- */
@@ -122,15 +166,25 @@ export interface MessageRow {
   created_at: string
 }
 
+export interface Page<T> {
+  items: T[]
+  next_cursor: number | null
+}
+
 export const chatApi = {
-  listConversations: () => api<ConversationRow[]>('/conversations'),
+  listConversations: (cursor?: number) => {
+    const q = cursor ? `?cursor=${cursor}` : ''
+    return api<Page<ConversationRow>>(`/conversations${q}`)
+  },
   createConversation: (title?: string) =>
     api<ConversationRow>('/conversations', {
       method: 'POST',
       body: JSON.stringify(title ? { title } : {}),
     }),
-  listMessages: (id: number) =>
-    api<MessageRow[]>(`/conversations/${id}/messages`),
+  listMessages: (id: number, cursor?: number) => {
+    const q = cursor ? `?cursor=${cursor}` : ''
+    return api<Page<MessageRow>>(`/conversations/${id}/messages${q}`)
+  },
   deleteConversation: (id: number) =>
     api<{ ok: boolean }>(`/conversations/${id}`, { method: 'DELETE' }),
 }
@@ -149,7 +203,7 @@ export async function streamChat(
   handlers: StreamHandlers,
   signal?: AbortSignal,
 ): Promise<void> {
-  const token = getToken()
+  const token = getAccess()
   let res: Response
   try {
     res = await fetch('/chat', {
@@ -165,6 +219,17 @@ export async function streamChat(
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') return
     handlers.onError('ارتباط با سرور برقرار نشد.')
+    return
+  }
+
+  // access منقضی شد → refresh و یک بار تلاش مجدد
+  if (res.status === 401) {
+    const newToken = await refreshAccess()
+    if (newToken) {
+      return streamChat(conversationId, message, handlers, signal)
+    }
+    clearAccess()
+    handlers.onError('نشست شما منقضی شده؛ دوباره وارد شوید.')
     return
   }
 
@@ -195,7 +260,6 @@ export async function streamChat(
           handlers.onDone()
           return
         }
-        // Server splits multi-line tokens into several data: lines (SSE spec: join with \n).
         const text = dataLines.join('\n')
         if (text) handlers.onToken(text)
       }

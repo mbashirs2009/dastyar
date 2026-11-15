@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 
 import database as db
 from auth import CurrentUser
@@ -26,9 +26,19 @@ def _require_conversation(conversation_id: int, user_id: int) -> dict:
     return conversation
 
 
-@router.get("", response_model=list[ConversationOut])
-def list_conversations(user: CurrentUser) -> list[ConversationOut]:
-    return [ConversationOut.model_validate(item) for item in db.list_conversations(user["id"])]
+@router.get("")
+def list_conversations(
+    user: CurrentUser,
+    limit: int = Query(default=20, ge=1, le=100),
+    cursor: int | None = Query(default=None, ge=0),
+) -> dict:
+    if limit > 100:
+        raise HTTPException(status_code=422, detail="limit حداکثر ۱۰۰ است.")
+    items, next_cursor = db.list_conversations_paged(user["id"], limit=limit, cursor=cursor)
+    return {
+        "items": [ConversationOut.model_validate(i) for i in items],
+        "next_cursor": next_cursor,
+    }
 
 
 @router.post("", response_model=ConversationOut)
@@ -40,13 +50,21 @@ def create_conversation(
     return ConversationOut.model_validate(conversation)
 
 
-@router.get("/{conversation_id}/messages", response_model=list[MessageOut])
-def list_messages(conversation_id: int, user: CurrentUser) -> list[MessageOut]:
+@router.get("/{conversation_id}/messages")
+def list_messages(
+    conversation_id: int,
+    user: CurrentUser,
+    limit: int = Query(default=20, ge=1, le=100),
+    cursor: int | None = Query(default=None, ge=0),
+) -> dict:
     _require_conversation(conversation_id, user["id"])
-    return [
-        MessageOut.model_validate(item)
-        for item in db.list_messages(conversation_id)
-    ]
+    if limit > 100:
+        raise HTTPException(status_code=422, detail="limit حداکثر ۱۰۰ است.")
+    items, next_cursor = db.list_messages_paged(conversation_id, limit=limit, cursor=cursor)
+    return {
+        "items": [MessageOut.model_validate(i) for i in items],
+        "next_cursor": next_cursor,
+    }
 
 
 @router.patch("/{conversation_id}", response_model=ConversationOut)

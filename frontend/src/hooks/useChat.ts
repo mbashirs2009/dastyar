@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { chatApi, streamChat, type MessageRow } from '../lib/api'
+import { chatApi, streamChat } from '../lib/api'
 import type { ChatMessage } from '../lib/types'
 
 interface UseChatOptions {
@@ -12,9 +12,9 @@ export function useChat({ onFirstReply }: UseChatOptions = {}) {
   const abortRef = useRef<AbortController | null>(null)
 
   const load = useCallback(async (conversationId: number) => {
-    const rows: MessageRow[] = await chatApi.listMessages(conversationId)
+    const page = await chatApi.listMessages(conversationId)
     setMessages(
-      rows.map((row) => ({
+      page.items.map((row) => ({
         id: String(row.id),
         role: row.role,
         content: row.content,

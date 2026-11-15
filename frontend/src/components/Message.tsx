@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
+import rehypeSanitize from 'rehype-sanitize'
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
@@ -72,7 +73,7 @@ export function Markdown({ content }: { content: string }) {
     <div className="msg-prose">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[[rehypeHighlight, { detect: true, ignoreMissing: true }]]}
+        rehypePlugins={[[rehypeHighlight, { detect: true, ignoreMissing: true }], rehypeSanitize]}
         components={{
           pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
           a: ({ href, children }) => (

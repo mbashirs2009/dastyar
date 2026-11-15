@@ -7,8 +7,8 @@ export function useConversations(activeId: number | null) {
 
   const refresh = useCallback(async () => {
     try {
-      const list = await chatApi.listConversations()
-      setItems(list)
+      const page = await chatApi.listConversations()
+      setItems(page.items)
     } catch {
       // keep previous list on failure
     } finally {

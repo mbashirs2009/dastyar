@@ -1,0 +1,8 @@
+User-agent: *
+Disallow: /auth
+Disallow: /conversations
+Disallow: /chat
+Disallow: /profile
+Disallow: /docs
+Disallow: /openapi.json
+Disallow: /telegram

@@ -151,7 +151,7 @@ export default function Login() {
                 id="password"
                 type="password"
                 required
-                minLength={6}
+                minLength={mode === 'login' ? 1 : 12}
                 dir="ltr"
                 className="field"
                 value={password}

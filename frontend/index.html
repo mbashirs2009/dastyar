@@ -28,7 +28,14 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="دستیار" />
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+      if (/Telegram/i.test(navigator.userAgent) || window.Telegram && window.Telegram.WebApp) {
+        var s = document.createElement('script');
+        s.src = 'https://telegram.org/js/telegram-web-app.js';
+        s.async = true;
+        document.head.appendChild(s);
+      }
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -38,29 +45,19 @@
     />
 
     <script>
-      // OAuth callback: save token/error BEFORE React mounts, so RequireAuth
-      // cannot bounce to /login and drop ?token= from the URL.
       (function () {
         try {
           var params = new URLSearchParams(window.location.search);
-          var token = params.get('token');
           var oauthError = params.get('error');
-          if (token) {
-            localStorage.setItem('dastyar_token', token);
-            params.delete('token');
-          }
           if (oauthError) {
             sessionStorage.setItem('dastyar_oauth_error', oauthError);
             params.delete('error');
-          }
-          if (token || oauthError) {
             var qs = params.toString();
             window.location.replace(window.location.pathname + (qs ? '?' + qs : ''));
             return;
           }
         } catch (e) { /* ignore */ }
 
-        // Resolve the stored theme before the first paint to avoid a flash of the wrong palette.
         try {
           var stored = window.localStorage.getItem('dastyar_theme');
           var preference = stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';

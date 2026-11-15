@@ -23,11 +23,11 @@ import logging
 from typing import Any
 from urllib.parse import parse_qsl
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 
 import database as db
-from auth import create_access_token
+from auth import issue_session
 from config import settings
 from schemas import AuthResponse, UserOut
 
@@ -219,7 +219,7 @@ def _upsert_telegram_user(
 # مسیرها
 # --------------------------------------------------------------------------- #
 @router.post("/verify", response_model=AuthResponse)
-def verify_telegram(payload: TelegramVerifyIn) -> AuthResponse:
+def verify_telegram(payload: TelegramVerifyIn, request: Request, response: Response) -> AuthResponse:
     """initData مینی‌اپ را تأیید و برای کاربر توکن JWT «دستیار» صادر می‌کند."""
     fields = _validate_init_data(payload.init_data)
     tg_user = _parse_telegram_user(fields)
@@ -249,10 +249,13 @@ def verify_telegram(payload: TelegramVerifyIn) -> AuthResponse:
     )
 
     logger.info("Telegram login ok for user %s", telegram_id)
-    return AuthResponse(
-        access_token=create_access_token(user["id"]),
-        user=UserOut.model_validate(user),
+    access = issue_session(
+        response,
+        user["id"],
+        ip=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent", "")[:200] or None,
     )
+    return AuthResponse(access_token=access, user=UserOut.model_validate(user))
 
 
 @router.get("/status", response_model=TelegramStatusOut)

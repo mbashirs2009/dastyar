@@ -9,8 +9,12 @@ services:
     healthCheckPath: /health
     autoDeploy: true
     envVars:
+      - key: ENV
+        value: production
       - key: APP_HOST
         value: 0.0.0.0
+      - key: DB_PATH
+        value: /var/data/dastyar.db
       - key: FRONTEND_URL
         sync: false          # بعد از اولین deploy آدرس onrender.com را بگذار
       - key: BACKEND_URL
@@ -31,3 +35,7 @@ services:
         sync: false
       - key: GITHUB_CLIENT_SECRET
         sync: false
+disks:
+  - name: dastyar-data
+    mountPath: /var/data
+    sizeGB: 1

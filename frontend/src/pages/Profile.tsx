@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ChatHeader } from '../components/ChatHeader'
 import { Logo } from '../components/Logo'
 import { ThemeToggle } from '../components/ThemeToggle'
-import { profileApi } from '../lib/api'
+import { profileApi, authApi } from '../lib/api'
 import { initials } from '../lib/format'
 import { useAuth } from '../hooks/useAuth'
 
@@ -14,6 +14,9 @@ export default function Profile() {
   const [saved, setSaved] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [currentPw, setCurrentPw] = useState('')
+  const [newPw, setNewPw] = useState('')
+  const [pwMsg, setPwMsg] = useState('')
 
   useEffect(() => {
     if (!loading && !user) navigate('/login', { replace: true })
@@ -87,6 +90,47 @@ export default function Profile() {
             <div>
               <p className="field-label">تم</p>
               <ThemeToggle />
+            </div>
+
+            <div>
+              <p className="field-label">تغییر رمز عبور</p>
+              <div className="space-y-2">
+                <input
+                  type="password"
+                  className="field"
+                  placeholder="رمز فعلی"
+                  autoComplete="current-password"
+                  value={currentPw}
+                  onChange={(e) => setCurrentPw(e.target.value)}
+                />
+                <input
+                  type="password"
+                  className="field"
+                  placeholder="رمز جدید (حداقل ۱۲ کاراکتر)"
+                  autoComplete="new-password"
+                  minLength={12}
+                  value={newPw}
+                  onChange={(e) => setNewPw(e.target.value)}
+                />
+                {pwMsg && <p className="text-xs text-muted">{pwMsg}</p>}
+                <button
+                  type="button"
+                  className="btn btn-secondary w-full"
+                  disabled={!currentPw || newPw.length < 12}
+                  onClick={async () => {
+                    try {
+                      await authApi.changePassword(currentPw, newPw)
+                      setPwMsg('رمز تغییر کرد؛ دوباره وارد شوید.')
+                      await logout()
+                      navigate('/login', { replace: true })
+                    } catch (err) {
+                      setPwMsg(err instanceof Error ? err.message : 'تغییر رمز نشد.')
+                    }
+                  }}
+                >
+                  تغییر رمز
+                </button>
+              </div>
             </div>
 
             {error && (

@@ -7,8 +7,9 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { authApi, api, clearToken, getToken, getStoredUser, setStoredUser, setToken } from '../lib/api'
-import type { User } from '../lib/types'
+import { authApi, api, clearToken, getStoredUser, setStoredUser, setAccess } from '../lib/api'
+import type { AuthResponse, User } from '../lib/types'
+import { useTelegram } from './useTelegram'
 
 interface AuthValue {
   user: User | null
@@ -23,62 +24,54 @@ const AuthContext = createContext<AuthValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<User | null>(() => getStoredUser())
-  const [loading, setLoading] = useState<boolean>(() => Boolean(getToken()))
+  const [loading, setLoading] = useState<boolean>(true)
+  const { initData } = useTelegram()
 
-  // Restore session from a possibly-expired token, or consume ?token= from OAuth redirect.
+  const applyAuth = useCallback((res: AuthResponse) => {
+    setAccess(res.access_token)
+    setUserState(res.user)
+    setStoredUser(res.user)
+  }, [])
+
+  // Restore session: refresh cookie (OAuth / نشست قبلی) یا تلگرام
   useEffect(() => {
     let cancelled = false
 
-    const params = new URLSearchParams(window.location.search)
-    const oauthToken = params.get('token')
-    if (oauthToken) {
-      setToken(oauthToken)
-      params.delete('token')
-      const next = params.toString()
-      window.history.replaceState({}, '', next ? `/?${next}` : '/')
-    }
-
-    if (!getToken()) {
-      setLoading(false)
-      return
-    }
-
-    authApi
-      .me()
-      .then((me) => {
+    async function restore() {
+      try {
+        const res = await authApi.refresh()
         if (cancelled) return
-        setUserState(me)
-        setStoredUser(me)
-      })
-      .catch(() => {
-        if (cancelled) return
-        clearToken()
-        setUserState(null)
-      })
-      .finally(() => {
+        if (res) {
+          setUserState(res.user)
+          setStoredUser(res.user)
+        } else {
+          setUserState(null)
+        }
+      } catch {
+        if (!cancelled) setUserState(null)
+      } finally {
         if (!cancelled) setLoading(false)
-      })
+      }
+    }
+
+    void restore()
 
     return () => {
       cancelled = true
     }
   }, [])
 
-  // Telegram Mini App auto-login (if opened from BotFather webapp)
+  // تلگرام: اگر initData آمد و هنوز user نداریم
   useEffect(() => {
-    const tg = (window as unknown as { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp
-    const initData = tg?.initData
-    if (!initData || getToken()) return
     let cancelled = false
+    if (!initData || getStoredUser()) return
     api<{ access_token: string; user: User }>('/auth/telegram/verify', {
       method: 'POST',
       body: JSON.stringify({ initData }),
     })
       .then((res) => {
         if (cancelled) return
-        setToken(res.access_token)
-        setUserState(res.user)
-        setStoredUser(res.user)
+        applyAuth(res)
         setLoading(false)
       })
       .catch(() => {
@@ -87,27 +80,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [initData, applyAuth])
 
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await authApi.login(email, password)
-    setToken(res.access_token)
-    setUserState(res.user)
-    setStoredUser(res.user)
-  }, [])
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const res = await authApi.login(email, password)
+      applyAuth(res)
+    },
+    [applyAuth],
+  )
 
-  const register = useCallback(async (email: string, password: string, name: string) => {
-    const res = await authApi.register({ email, password, name })
-    setToken(res.access_token)
-    setUserState(res.user)
-    setStoredUser(res.user)
-  }, [])
+  const register = useCallback(
+    async (email: string, password: string, name: string) => {
+      const res = await authApi.register({ email, password, name })
+      if ('access_token' in res && res.access_token) {
+        applyAuth(res as AuthResponse)
+        return
+      }
+      // پیام مبهم ثبت‌نام (ایمیل تکراری) — کاربر را به ورود می‌فرستیم
+      const message = (res as { message?: string }).message ?? AMBIGUOUS
+      throw new Error(message)
+    },
+    [applyAuth],
+  )
 
   const logout = useCallback(async () => {
     try {
       await authApi.logout()
     } catch {
-      // ignore network errors on logout
+      // حتی اگر توکن منقضی بود، خروج محلی انجام می‌شود
     }
     clearToken()
     setUserState(null)
@@ -125,6 +126,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
+
+const AMBIGUOUS = 'اگر این ایمیل معتبر باشد، حساب شما فعال است. وارد شوید.'
 
 export function useAuth(): AuthValue {
   const ctx = useContext(AuthContext)

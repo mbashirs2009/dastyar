@@ -44,9 +44,14 @@ class Settings(BaseSettings):
     # --- نوع سرویس: auto | pollinations | openrouter | mock ---
     llm_provider: str = "auto"
 
-    # --- JWT ---
+    # --- JWT / نشست ---
     jwt_secret: str = "dastyar-dev-secret-change-me"
-    jwt_expire_minutes: int = 60 * 24 * 30  # ۳۰ روز
+    access_token_minutes: int = 15
+    refresh_token_days: int = 7
+    jwt_expire_minutes: int = 15  # سازگاری قبلی؛ access token
+    env: str = "dev"  # dev | production
+    db_path: str = ""  # خالی = کنار main.py؛ روی Render: /var/data/dastyar.db
+    allowed_origins: str = ""  # جدا با کاما؛ خالی = frontend_url + localhost در dev
 
     # --- OAuth ---
     google_client_id: str = ""
@@ -125,13 +130,21 @@ class Settings(BaseSettings):
         return [*chain, "mock"]
 
     @property
+    def is_prod(self) -> bool:
+        return self.env.strip().lower() == "production"
+
+    @property
     def cors_origins(self) -> list[str]:
-        """مبدأهای مجاز CORS (فرانت‌اند + پورت‌های توسعه)."""
-        origins = {
-            self.frontend_url,
-            "http://localhost:5173",
-            "http://localhost:3000",
-        }
+        origins = set()
+        if self.allowed_origins.strip():
+            origins.update(
+                o.strip().rstrip("/")
+                for o in self.allowed_origins.split(",")
+                if o.strip()
+            )
+        origins.add(self.frontend_url.rstrip("/"))
+        if not self.is_prod:
+            origins.update({"http://localhost:5173", "http://localhost:3000"})
         return sorted(o for o in origins if o)
 
     @property
