@@ -48,7 +48,7 @@ export function Sidebar({ open, onClose, activeId, onSelect, onNew }: SidebarPro
       )}
 
       <aside
-        className={`fixed inset-y-0 end-0 z-40 flex w-[288px] shrink-0 flex-col border-s border-line bg-surface transition-transform duration-200 ease-out md:sticky md:top-0 md:h-dvh md:translate-x-0 ${
+        className={`fixed inset-y-0 start-0 z-40 flex w-[min(85vw,288px)] shrink-0 flex-col border-e border-line bg-surface transition-transform duration-200 ease-out md:sticky md:top-0 md:h-dvh md:w-[288px] md:translate-x-0 ${
           open ? 'translate-x-0' : 'translate-x-full md:translate-x-0'
         }`}
         aria-label="فهرست گفتگوها"
